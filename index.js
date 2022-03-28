@@ -12,19 +12,27 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 
 /* 
-  - getWord gets a query like 'ho_e' and returns an array of
-    all possible words like ['home', 'hole', 'hone', etc..]
+  -still need to sanitize inputs
 
-  - we need getWord to get a query like 'ho_e' and also a list of 
-    eliminated letters like 'malr' and return ['hone', etc..]
-
-  - on top of that, we need to first sanitize inputs
 */
+
 const getWord = (req, res) => {
-  console.log(req.query);
-  let queryString = 'SELECT * FROM words WHERE word LIKE $1;'
+  const { incompleteWord, excludedLetters, requiredLetters} = req.query;
+
+  function requiredLettersRegex(letters) {
+    const reducer = (accumulator, item) => {
+      return accumulator + `(?=.*${item})`;
+    }
+  
+    let regX = letters.split('')
+      .reduce(reducer, '');
+    
+    return regX + '.+';
+  }  
+
+  let queryString = 'SELECT * FROM words WHERE word LIKE $1 AND word ~* $2 AND word ~* $3;'
   pool
-    .query(queryString, [req.query.incompleteWord])
+    .query(queryString, [incompleteWord, `\\y[^ ${excludedLetters}]+\\y`, requiredLettersRegex(requiredLetters)])
     .then(results => {
       res.status(200).json(results.rows);
     })
