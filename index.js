@@ -13,26 +13,15 @@ app.use(cors());
 
 /* 
   -still need to sanitize inputs
-
 */
 
 const getWord = (req, res) => {
-  const { incompleteWord, excludedLetters, requiredLetters} = req.query;
-
-  function requiredLettersRegex(letters) {
-    const reducer = (accumulator, item) => {
-      return accumulator + `(?=.*${item})`;
-    }
-  
-    let regX = letters.split('')
-      .reduce(reducer, '');
-    
-    return regX + '.+';
-  }  
+  const { incompleteWord, excludedLetters, requiredLetters } = req.query;
 
   let queryString = 'SELECT * FROM words WHERE word LIKE $1 AND word ~* $2 AND word ~* $3;'
+  const pQS = new ParameterQueryString(incompleteWord, excludedLetters, requiredLetters);
   pool
-    .query(queryString, [incompleteWord, `\\y[^ ${excludedLetters}]+\\y`, requiredLettersRegex(requiredLetters)])
+    .query(queryString, pQS.getParamQueries())
     .then(results => {
       res.status(200).json(results.rows);
     })
@@ -45,3 +34,28 @@ app.route('/')
 app.listen(process.env.PORT || 3000, () => {
   console.log('Server Listening');
 })
+
+class ParameterQueryString {
+  constructor(incompleteWord, excludedLetters, requiredLetters) {
+    this.incompleteWord = incompleteWord,
+    this.excludedLetters = `\\y[^ ${excludedLetters}]+\\y`,
+    this.requiredLetters = this.requiredLettersRegex(requiredLetters),
+
+    this.queries = [ this.incompleteWord, this.excludedLetters, this.requiredLetters ]
+  }
+
+  requiredLettersRegex(letters) {
+    const reducer = (accumulator, item) => {
+      return accumulator + `(?=.*${item})`;
+    }
+  
+    let regX = letters.split('')
+      .reduce(reducer, '');
+    
+    return regX + '.+';
+  }
+
+  getParamQueries() {
+    return this.queries;
+  }
+}
