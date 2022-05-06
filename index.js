@@ -16,8 +16,8 @@ app.use(cors());
 */
 
 const getWord = (req, res) => {
-  const { incompleteWord, excludedLetters, requiredLetters } = req.query;
-
+  console.log('in getWord')
+  const { incompleteWord, excludedLetters, requiredLetters } = req.body;
   let queryString = 'SELECT * FROM words WHERE word LIKE $1 AND word ~* $2 AND word ~* $3;'
   const pQS = new ParameterQueryString(incompleteWord, excludedLetters, requiredLetters);
   pool
@@ -29,33 +29,45 @@ const getWord = (req, res) => {
 }
 
 app.route('/')
-  .get(getWord);
+  .post(getWord);
 
-app.listen(process.env.PORT || 3000, () => {
+app.listen(process.env.PORT || 8080, () => {
   console.log('Server Listening');
 })
 
 class ParameterQueryString {
   constructor(incompleteWord, excludedLetters, requiredLetters) {
-    this.incompleteWord = incompleteWord,
-    this.excludedLetters = `\\y[^ ${excludedLetters}]+\\y`,
+    this.incompleteWord = this.incompleteWordRegex(incompleteWord),
+    this.excludedLetters = this.excludedLettersRegex(excludedLetters),
     this.requiredLetters = this.requiredLettersRegex(requiredLetters),
 
     this.queries = [ this.incompleteWord, this.excludedLetters, this.requiredLetters ]
   }
 
-  requiredLettersRegex(letters) {
+  incompleteWordRegex(arr) {
+    let lowerCaseArr = arr.map(letter => letter.toLowerCase())
+    return lowerCaseArr.join('');
+  }
+
+  excludedLettersRegex(arr) {
+    let lowerCaseArr = arr.map(letter => letter.toLowerCase())
+    let letters = lowerCaseArr.join('');
+    return `\\y[^ ${letters}]+\\y`;
+  }
+
+  requiredLettersRegex(arr) {
+    let lowerCaseArr = arr.map(letter => letter.toLowerCase())
     const reducer = (accumulator, item) => {
       return accumulator + `(?=.*${item})`;
     }
   
-    let regX = letters.split('')
-      .reduce(reducer, '');
+    let regX = lowerCaseArr.reduce(reducer, '');
     
     return regX + '.+';
   }
 
   getParamQueries() {
+    console.log('this.queries: ', this.queries);
     return this.queries;
   }
 }
